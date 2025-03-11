@@ -1,0 +1,64 @@
+pipeline {
+    agent any
+
+    environment {
+        // Replace with your Docker Hub username if you plan to push the image
+        DOCKER_IMAGE = "myusername/mywebapp:${env.BUILD_NUMBER}"
+        // Credentials IDs you need to set up in Jenkins:
+        REGISTRY_CREDENTIALS = 'dockerhub-credentials'
+        KUBE_CONFIG_CREDENTIALS = 'kubeconfig'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // Checkout code from your repository
+                checkout scm
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                // Build the Docker image
+                sh 'docker build -t $DOCKER_IMAGE .'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                // Run tests inside the built image
+                sh 'docker run --rm $DOCKER_IMAGE ./run-tests.sh'
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    // Log in to Docker registry and push the image
+                    docker.withRegistry('', REGISTRY_CREDENTIALS) {
+                        sh 'docker push $DOCKER_IMAGE'
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                // Deploy to Kubernetes using kubectl commands
+                withCredentials([file(credentialsId: KUBE_CONFIG_CREDENTIALS, variable: 'KUBECONFIG')]) {
+                    sh '''
+                        kubectl set image deployment/mywebapp-deployment mywebapp-container=$DOCKER_IMAGE --record
+                        kubectl rollout status deployment/mywebapp-deployment
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            // Clean up Docker images (optional)
+            sh 'docker rmi $DOCKER_IMAGE || true'
+        }
+    }
+}
