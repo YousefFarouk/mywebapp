@@ -21,7 +21,7 @@ pipeline {
                 ])
             }
         }
-x
+        
         stage('Build Docker Image') {
             steps {
                 // Build the Docker image
