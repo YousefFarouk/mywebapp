@@ -21,11 +21,11 @@ pipeline {
                 ])
             }
         }
-
+x
         stage('Build Docker Image') {
             steps {
                 // Build the Docker image
-                sh 'docker build -t $DOCKER_IMAGE .'
+                sh 'docker build -t YousefFarouk/mywebapp:${env.BUILD_NUMBER} .'
             }
         }
 
