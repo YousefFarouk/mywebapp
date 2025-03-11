@@ -2,10 +2,9 @@ pipeline {
     agent any
 
     environment {
-        // Use your Docker Hub username if you plan to push the image.
-        // For local testing, you can simply use "mywebapp:${env.BUILD_NUMBER}"
+        // Replace "myusername" with your Docker Hub username if needed.
+        // For local testing you can simply use "mywebapp:${env.BUILD_NUMBER}"
         DOCKER_IMAGE = "myusername/mywebapp:${env.BUILD_NUMBER}"
-        // Jenkins credentials IDs
         REGISTRY_CREDENTIALS = 'dockerhub-credentials'
         KUBE_CONFIG_CREDENTIALS = 'kubeconfig'
     }
@@ -13,7 +12,6 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Updated branch specifier to "main"
                 checkout([
                     $class: 'GitSCM',
                     branches: [[name: '*/main']],
@@ -21,27 +19,30 @@ pipeline {
                 ])
             }
         }
-        
+
         stage('Build Docker Image') {
             steps {
-                // Build the Docker image
-                sh 'docker build -t YousefFarouk/mywebapp:${env.BUILD_NUMBER} .'
+                sh '''#!/bin/bash
+                docker build -t "$DOCKER_IMAGE" .
+                '''
             }
         }
 
         stage('Test') {
             steps {
-                // Run tests using the built Docker image
-                sh 'docker run --rm $DOCKER_IMAGE ./run-tests.sh'
+                sh '''#!/bin/bash
+                docker run --rm "$DOCKER_IMAGE" ./run-tests.sh
+                '''
             }
         }
 
         stage('Push Docker Image') {
             steps {
                 script {
-                    // Log in to Docker registry and push the image
                     docker.withRegistry('', REGISTRY_CREDENTIALS) {
-                        sh 'docker push $DOCKER_IMAGE'
+                        sh '''#!/bin/bash
+                        docker push "$DOCKER_IMAGE"
+                        '''
                     }
                 }
             }
@@ -49,11 +50,10 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                // Deploy to Kubernetes using the provided kubeconfig credentials
                 withCredentials([file(credentialsId: KUBE_CONFIG_CREDENTIALS, variable: 'KUBECONFIG')]) {
-                    sh '''
-                        kubectl set image deployment/mywebapp-deployment mywebapp-container=$DOCKER_IMAGE --record
-                        kubectl rollout status deployment/mywebapp-deployment
+                    sh '''#!/bin/bash
+                    kubectl set image deployment/mywebapp-deployment mywebapp-container="$DOCKER_IMAGE" --record
+                    kubectl rollout status deployment/mywebapp-deployment
                     '''
                 }
             }
@@ -62,8 +62,9 @@ pipeline {
 
     post {
         always {
-            // Optional cleanup: remove the Docker image to free space
-            sh 'docker rmi $DOCKER_IMAGE || true'
+            sh '''#!/bin/bash
+            docker rmi "$DOCKER_IMAGE" || true
+            '''
         }
     }
 }
