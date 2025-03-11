@@ -2,9 +2,10 @@ pipeline {
     agent any
 
     environment {
-        // Replace with your Docker Hub username if you plan to push the image
+        // Use your Docker Hub username if you plan to push the image.
+        // For local testing, you can simply use "mywebapp:${env.BUILD_NUMBER}"
         DOCKER_IMAGE = "myusername/mywebapp:${env.BUILD_NUMBER}"
-        // Credentials IDs you need to set up in Jenkins:
+        // Jenkins credentials IDs
         REGISTRY_CREDENTIALS = 'dockerhub-credentials'
         KUBE_CONFIG_CREDENTIALS = 'kubeconfig'
     }
@@ -12,8 +13,12 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Checkout code from your repository
-                checkout scm
+                // Updated branch specifier to "main"
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[url: 'https://github.com/Yusuf/my-webapp.git']]
+                ])
             }
         }
 
@@ -26,7 +31,7 @@ pipeline {
 
         stage('Test') {
             steps {
-                // Run tests inside the built image
+                // Run tests using the built Docker image
                 sh 'docker run --rm $DOCKER_IMAGE ./run-tests.sh'
             }
         }
@@ -44,7 +49,7 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                // Deploy to Kubernetes using kubectl commands
+                // Deploy to Kubernetes using the provided kubeconfig credentials
                 withCredentials([file(credentialsId: KUBE_CONFIG_CREDENTIALS, variable: 'KUBECONFIG')]) {
                     sh '''
                         kubectl set image deployment/mywebapp-deployment mywebapp-container=$DOCKER_IMAGE --record
@@ -57,7 +62,7 @@ pipeline {
 
     post {
         always {
-            // Clean up Docker images (optional)
+            // Optional cleanup: remove the Docker image to free space
             sh 'docker rmi $DOCKER_IMAGE || true'
         }
     }
